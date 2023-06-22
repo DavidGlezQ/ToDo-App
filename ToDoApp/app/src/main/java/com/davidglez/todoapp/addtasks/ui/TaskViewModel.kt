@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.davidglez.todoapp.addtasks.domain.AddTaskUseCase
 import com.davidglez.todoapp.addtasks.domain.GetTaskUseCase
+import com.davidglez.todoapp.addtasks.domain.UpdateTaskUseCase
 import com.davidglez.todoapp.addtasks.ui.TasksUiState.Success
 import com.davidglez.todoapp.addtasks.ui.model.TaskModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +26,7 @@ import javax.inject.Inject
 @HiltViewModel
 class TaskViewModel @Inject constructor(
     private val addTaskUseCase: AddTaskUseCase,
+    private val updateTaskUseCase: UpdateTaskUseCase,
     getTaskUseCase: GetTaskUseCase
 ) : ViewModel() {
 
@@ -57,11 +59,9 @@ class TaskViewModel @Inject constructor(
     }
 
     fun onCheckedBoxSelected(taskModel: TaskModel) {
-        //update check
-        /*val index = _task.indexOf(taskModel)
-        _task[index] = _task[index].let {
-            it.copy(selected = !it.selected)
-        }*/
+        viewModelScope.launch { 
+            updateTaskUseCase(taskModel.copy(selected = !taskModel.selected))
+        }
     }
 
     fun onItemRemove(taskModel: TaskModel) {

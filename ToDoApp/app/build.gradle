@@ -68,7 +68,9 @@ dependencies {
     implementation 'androidx.compose.runtime:runtime-livedata:1.4.3'
 
     //Room
-
+    implementation 'androidx.room:room-runtime:2.5.2'
+    kapt 'androidx.room:room-compiler:2.5.2'
+    implementation 'androidx.room:room-ktx:2.5.2'
 
     //Testing
     testImplementation 'junit:junit:4.13.2'

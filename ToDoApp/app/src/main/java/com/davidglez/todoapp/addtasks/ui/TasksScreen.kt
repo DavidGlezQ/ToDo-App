@@ -1,7 +1,6 @@
 package com.davidglez.todoapp.addtasks.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -27,16 +27,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.davidglez.todoapp.addtasks.ui.model.TaskModel
 
 /**
@@ -49,19 +53,35 @@ fun TasksScreen(tasksViewModel: TaskViewModel) {
 
     val showDialog: Boolean by tasksViewModel.showDialog.observeAsState(false)
 
-    Box(Modifier.fillMaxSize()) {
-        AddTaskDialog(
-            show = showDialog,
-            onDismiss = { tasksViewModel.onDialogClose() },
-            onTaskAdded = { tasksViewModel.onTaskCreated(it) })
-        FabDialog(
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp), tasksViewModel
-        )
-        TaskList(tasksViewModel)
+    val lifeCycle = LocalLifecycleOwner.current.lifecycle
+    val uiState by produceState<TasksUiState>( // este val es el que contiene el ultimo valor actualizado
+        initialValue = TasksUiState.Loading,
+        key1 = lifeCycle,
+        key2 = tasksViewModel
+    ) {
+        lifeCycle.repeatOnLifecycle(state = Lifecycle.State.STARTED) {
+            tasksViewModel.uiState.collect { value = it }
+        }
     }
 
+    when(uiState) {
+        is TasksUiState.Error -> {}
+        TasksUiState.Loading -> { CircularProgressIndicator() }
+        is TasksUiState.Success -> {
+            Box(Modifier.fillMaxSize()) {
+                AddTaskDialog(
+                    show = showDialog,
+                    onDismiss = { tasksViewModel.onDialogClose() },
+                    onTaskAdded = { tasksViewModel.onTaskCreated(it) })
+                FabDialog(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp), tasksViewModel
+                )
+                TaskList((uiState as TasksUiState.Success).tasks, tasksViewModel = tasksViewModel)
+            }
+        }
+    }
 }
 
 @Composable
@@ -114,12 +134,12 @@ fun AddTaskDialog(show: Boolean, onDismiss: () -> Unit, onTaskAdded: (String) ->
 }
 
 @Composable
-fun TaskList(tasksViewModel: TaskViewModel) {
-    val myTask: List<TaskModel> = tasksViewModel.task
+fun TaskList(tasks: List<TaskModel>, tasksViewModel: TaskViewModel) {
+    //val myTask: List<TaskModel> = tasksViewModel.task
 
     LazyColumn {
         //El parametro de key sirve para optimizar el lazyColum
-        items(myTask, key = { it.id }) {
+        items(tasks, key = { it.id }) {
             ItemTask(taskModel = it, tasksViewModel = tasksViewModel)
         }
     }
@@ -131,8 +151,9 @@ fun ItemTask(taskModel: TaskModel, tasksViewModel: TaskViewModel) {
     Card(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp).pointerInput(Unit) {
-                detectTapGestures(onLongPress =  {
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(onLongPress = {
                     tasksViewModel.onItemRemove(taskModel)
                 })
             }
